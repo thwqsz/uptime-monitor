@@ -18,10 +18,13 @@ func main() {
 	if err != nil {
 		log.Fatal("failed to load config", zap.Error(err))
 	}
+	log.Info("starting uptime_monitor")
+
 	database, err := db.InitDB(conf.DB)
 	if err != nil {
 		log.Fatal("failed to init db", zap.Error(err))
 	}
 	defer database.Close()
+	log.Info("database is connected")
 
 }
