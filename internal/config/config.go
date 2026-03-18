@@ -9,6 +9,8 @@ import (
 type Config struct {
 	Port int
 	DB   DBConfig
+
+	JWTSecret string
 }
 type DBConfig struct {
 	Host     string
@@ -72,9 +74,16 @@ func getDBConfig() (DBConfig, error) {
 	} else {
 		config.Name = env
 	}
-
 	return config, nil
 
+}
+
+func getJWTSecret() (string, error) {
+	if env := os.Getenv("JWT_SECRET"); env == "" {
+		return "", errors.New("no JWT info")
+	} else {
+		return env, nil
+	}
 }
 
 func Load() (Config, error) {
@@ -86,9 +95,14 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	jwtSecret, err := getJWTSecret()
+	if err != nil {
+		return Config{}, err
+	}
 	conf := Config{
-		Port: port,
-		DB:   confDB,
+		Port:      port,
+		DB:        confDB,
+		JWTSecret: jwtSecret,
 	}
 	return conf, nil
 
