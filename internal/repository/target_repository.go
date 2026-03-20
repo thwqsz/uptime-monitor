@@ -9,6 +9,7 @@ import (
 
 type TargetRepository interface {
 	CreateTarget(ctx context.Context, target *models.Target) error
+	GetTargetsByUserID(ctx context.Context, userID int64) ([]*models.Target, error)
 }
 type PostgresTargetRepository struct {
 	db *sql.DB
@@ -28,4 +29,30 @@ func (r *PostgresTargetRepository) CreateTarget(ctx context.Context, target *mod
 		return err
 	}
 	return nil
+}
+
+func (r *PostgresTargetRepository) GetTargetsByUserID(ctx context.Context, userID int64) ([]*models.Target, error) {
+	var targets []*models.Target
+	query := `  SELECT id, user_id, url, timeout, interval_time, created_at
+				FROM targets 
+				WHERE user_id = $1`
+
+	targetRows, err := r.db.QueryContext(ctx, query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer targetRows.Close()
+
+	for targetRows.Next() {
+		target := &models.Target{}
+		err := targetRows.Scan(&target.ID, &target.UserID, &target.URL, &target.Timeout, &target.IntervalTime, &target.CreatedAt)
+		if err != nil {
+			return nil, err
+		}
+		targets = append(targets, target)
+	}
+	if err = targetRows.Err(); err != nil {
+		return nil, err
+	}
+	return targets, nil
 }
