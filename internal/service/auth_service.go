@@ -4,9 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"time"
 
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/thwqsz/uptime-monitor/internal/models"
 	"github.com/thwqsz/uptime-monitor/internal/repository"
 	"golang.org/x/crypto/bcrypt"
@@ -71,31 +69,4 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (string
 		return "", err
 	}
 	return token, nil
-}
-
-type Claims struct {
-	UserID int64 `json:"user_id"`
-	jwt.RegisteredClaims
-}
-
-func GenerateToken(userID int64, secret string) (string, error) {
-	now := time.Now()
-	durExp := time.Hour * 24
-	exp := now.Add(durExp)
-
-	claims := Claims{
-		UserID: userID,
-		RegisteredClaims: jwt.RegisteredClaims{
-			IssuedAt:  jwt.NewNumericDate(now),
-			ExpiresAt: jwt.NewNumericDate(exp),
-		},
-	}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-
-	signedToken, err := token.SignedString([]byte(secret))
-	if err != nil {
-		return "", err
-	}
-	return signedToken, nil
 }

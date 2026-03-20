@@ -1,9 +1,16 @@
 package main
 
 import (
+	"fmt"
+	"net/http"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/thwqsz/uptime-monitor/internal/api"
 	"github.com/thwqsz/uptime-monitor/internal/config"
 	"github.com/thwqsz/uptime-monitor/internal/db"
 	"github.com/thwqsz/uptime-monitor/internal/logger"
+	"github.com/thwqsz/uptime-monitor/internal/repository"
+	"github.com/thwqsz/uptime-monitor/internal/service"
 	"go.uber.org/zap"
 )
 
@@ -27,4 +34,39 @@ func main() {
 	defer database.Close()
 	log.Info("database is connected")
 
+	userRepo := repository.NewUserRepository(database)
+
+	authService := service.NewAuthService(userRepo, conf.JWTSecret)
+
+	authHandler := api.NewAuthHandler(authService)
+
+	repoTarget := repository.NewPostgresTargetRepository(database)
+
+	targetService := service.NewTargetService(repoTarget)
+
+	targetHandler := api.NewTargetHandler(targetService)
+
+	r := chi.NewRouter()
+
+	r.Post("/auth/register", authHandler.RegisterHandler)
+	r.Post("/auth/login", authHandler.LoginHandler)
+	r.Group(func(r chi.Router) {
+		r.Use(service.JWTMiddleware(conf.JWTSecret))
+		r.Get("/test", testHandler)
+		r.Post("/targets", targetHandler.TargetCreateHandler)
+	})
+
+	port := fmt.Sprintf(":%d", conf.Port)
+	log.Info("http server started", zap.String("port", port))
+	err = http.ListenAndServe(port, r)
+	log.Fatal("failed to starts server", zap.Error(err))
+}
+
+func testHandler(w http.ResponseWriter, r *http.Request) {
+	userID, ok := service.UserIDFromContext(r.Context())
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	w.Write([]byte(fmt.Sprintf("%v", userID)))
 }
