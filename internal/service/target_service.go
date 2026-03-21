@@ -13,6 +13,9 @@ var ErrInvalidURL = errors.New("invalid url")
 var ErrInvalidTimeout = errors.New("invalid timeout")
 var ErrInvalidInterval = errors.New("invalid interval")
 var ErrInvalidUserID = errors.New("invalid userID")
+var ErrNoTargetFound = errors.New("no target found")
+var ErrMultipleTargetsDeleted = errors.New("multiple target deleted")
+var ErrInvalidTargetID = errors.New("invalid targetID")
 
 type TargetService struct {
 	repo repository.TargetRepository
@@ -58,4 +61,25 @@ func (s *TargetService) ListTargets(ctx context.Context, userID int64) ([]*model
 		return nil, err
 	}
 	return targets, nil
+}
+
+func (s *TargetService) DeleteTarget(ctx context.Context, targetID, userID int64) error {
+	if userID < 1 {
+		return ErrInvalidUserID
+	}
+	if targetID < 1 {
+		return ErrInvalidTargetID
+	}
+	rowsAffected, err := s.repo.DeleteTarget(ctx, targetID, userID)
+	if err != nil {
+		return err
+	}
+	switch rowsAffected {
+	case 0:
+		return ErrNoTargetFound
+	case 1:
+		return nil
+	default:
+		return ErrMultipleTargetsDeleted
+	}
 }

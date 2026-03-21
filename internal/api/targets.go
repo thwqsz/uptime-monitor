@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/thwqsz/uptime-monitor/internal/service"
 )
 
@@ -68,4 +70,32 @@ func (h *TargetHandler) TargetListHandler(w http.ResponseWriter, r *http.Request
 
 		return
 	}
+}
+
+func (h *TargetHandler) DeleteTargetHandler(w http.ResponseWriter, r *http.Request) {
+	targetIDString := chi.URLParam(r, "id")
+	targetID, err := strconv.ParseInt(targetIDString, 10, 64)
+	if err != nil {
+		http.Error(w, "invalid input", http.StatusBadRequest)
+		return
+	}
+	userID, ok := service.UserIDFromContext(r.Context())
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	err = h.targetService.DeleteTarget(r.Context(), targetID, userID)
+	if err != nil {
+		if errors.Is(err, service.ErrInvalidUserID) || errors.Is(err, service.ErrInvalidTargetID) {
+			http.Error(w, "invalid input", http.StatusBadRequest)
+			return
+		}
+		if errors.Is(err, service.ErrNoTargetFound) {
+			http.Error(w, "not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }

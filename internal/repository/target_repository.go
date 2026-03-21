@@ -10,6 +10,7 @@ import (
 type TargetRepository interface {
 	CreateTarget(ctx context.Context, target *models.Target) error
 	GetTargetsByUserID(ctx context.Context, userID int64) ([]*models.Target, error)
+	DeleteTarget(ctx context.Context, targetID, userID int64) (int64, error)
 }
 type PostgresTargetRepository struct {
 	db *sql.DB
@@ -55,4 +56,17 @@ func (r *PostgresTargetRepository) GetTargetsByUserID(ctx context.Context, userI
 		return nil, err
 	}
 	return targets, nil
+}
+
+func (r *PostgresTargetRepository) DeleteTarget(ctx context.Context, targetID, userID int64) (int64, error) {
+	query := `DELETE FROM targets WHERE id = $1 AND user_id = $2`
+	res, err := r.db.ExecContext(ctx, query, targetID, userID)
+	if err != nil {
+		return 0, err
+	}
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return 0, err
+	}
+	return rowsAffected, nil
 }

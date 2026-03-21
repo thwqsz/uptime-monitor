@@ -55,6 +55,7 @@ func main() {
 		r.Get("/test", testHandler)
 		r.Post("/targets", targetHandler.TargetCreateHandler)
 		r.Get("/targets", targetHandler.TargetListHandler)
+		r.Delete("/targets/{id}", targetHandler.DeleteTargetHandler)
 	})
 
 	port := fmt.Sprintf(":%d", conf.Port)
