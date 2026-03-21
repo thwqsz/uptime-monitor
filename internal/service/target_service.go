@@ -12,6 +12,7 @@ import (
 var ErrInvalidURL = errors.New("invalid url")
 var ErrInvalidTimeout = errors.New("invalid timeout")
 var ErrInvalidInterval = errors.New("invalid interval")
+var ErrInvalidUserID = errors.New("invalid userID")
 
 type TargetService struct {
 	repo repository.TargetRepository
@@ -46,4 +47,15 @@ func (s *TargetService) CreateTarget(ctx context.Context, userID int64, url stri
 		return nil, err
 	}
 	return &target, nil
+}
+
+func (s *TargetService) ListTargets(ctx context.Context, userID int64) ([]*models.Target, error) {
+	if userID < 1 {
+		return nil, ErrInvalidUserID
+	}
+	targets, err := s.repo.GetTargetsByUserID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	return targets, nil
 }

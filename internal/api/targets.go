@@ -31,7 +31,7 @@ func (h *TargetHandler) TargetCreateHandler(w http.ResponseWriter, r *http.Reque
 	var req TargetCreateRequest
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
-		http.Error(w, "decode problem", http.StatusBadRequest)
+		http.Error(w, "invalid request", http.StatusBadRequest)
 		return
 	}
 
@@ -47,6 +47,25 @@ func (h *TargetHandler) TargetCreateHandler(w http.ResponseWriter, r *http.Reque
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	if err := json.NewEncoder(w).Encode(ans); err != nil {
+		return
+	}
+}
+
+func (h *TargetHandler) TargetListHandler(w http.ResponseWriter, r *http.Request) {
+	userID, ok := service.UserIDFromContext(r.Context())
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	ans, err := h.targetService.ListTargets(r.Context(), userID)
+	if err != nil {
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(ans); err != nil {
+
 		return
 	}
 }

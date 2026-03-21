@@ -54,6 +54,7 @@ func main() {
 		r.Use(service.JWTMiddleware(conf.JWTSecret))
 		r.Get("/test", testHandler)
 		r.Post("/targets", targetHandler.TargetCreateHandler)
+		r.Get("/targets", targetHandler.TargetListHandler)
 	})
 
 	port := fmt.Sprintf(":%d", conf.Port)
