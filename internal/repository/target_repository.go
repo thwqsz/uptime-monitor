@@ -11,6 +11,7 @@ type TargetRepository interface {
 	CreateTarget(ctx context.Context, target *models.Target) error
 	GetTargetsByUserID(ctx context.Context, userID int64) ([]*models.Target, error)
 	DeleteTarget(ctx context.Context, targetID, userID int64) (int64, error)
+	GetTargetByID(ctx context.Context, targetID int64) (*models.Target, error)
 }
 type PostgresTargetRepository struct {
 	db *sql.DB
@@ -69,4 +70,16 @@ func (r *PostgresTargetRepository) DeleteTarget(ctx context.Context, targetID, u
 		return 0, err
 	}
 	return rowsAffected, nil
+}
+
+func (r *PostgresTargetRepository) GetTargetByID(ctx context.Context, targetID int64) (*models.Target, error) {
+	query := `SELECT id, user_id, url, timeout, interval_time, created_at
+				FROM targets 
+				WHERE id = $1`
+	target := &models.Target{}
+	err := r.db.QueryRowContext(ctx, query, targetID).Scan(&target.ID, &target.UserID, &target.URL, &target.Timeout, &target.IntervalTime, &target.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return target, nil
 }

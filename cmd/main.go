@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/thwqsz/uptime-monitor/internal/api"
+	"github.com/thwqsz/uptime-monitor/internal/checker"
 	"github.com/thwqsz/uptime-monitor/internal/config"
 	"github.com/thwqsz/uptime-monitor/internal/db"
 	"github.com/thwqsz/uptime-monitor/internal/logger"
@@ -35,19 +36,21 @@ func main() {
 	log.Info("database is connected")
 
 	userRepo := repository.NewUserRepository(database)
-
 	authService := service.NewAuthService(userRepo, conf.JWTSecret)
-
 	authHandler := api.NewAuthHandler(authService)
 
 	repoTarget := repository.NewPostgresTargetRepository(database)
-
 	targetService := service.NewTargetService(repoTarget)
-
 	targetHandler := api.NewTargetHandler(targetService)
 
-	r := chi.NewRouter()
+	// Подключаю чекер
+	check := checker.NewHTTPChecker(http.Client{})
+	logRepo := repository.NewPostgresCheckLogRepository(database)
+	CheckService := service.NewCheckService(logRepo, repoTarget, check)
+	checkHandler := api.NewCheckHandler(CheckService)
 
+	r := chi.NewRouter()
+	r.Get("/targets/{id}/check", checkHandler.CheckHandler)
 	r.Post("/auth/register", authHandler.RegisterHandler)
 	r.Post("/auth/login", authHandler.LoginHandler)
 	r.Group(func(r chi.Router) {
@@ -56,6 +59,7 @@ func main() {
 		r.Post("/targets", targetHandler.TargetCreateHandler)
 		r.Get("/targets", targetHandler.TargetListHandler)
 		r.Delete("/targets/{id}", targetHandler.DeleteTargetHandler)
+
 	})
 
 	port := fmt.Sprintf(":%d", conf.Port)
