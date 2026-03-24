@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/thwqsz/uptime-monitor/internal/logger"
 	"github.com/thwqsz/uptime-monitor/internal/repository"
 	"github.com/thwqsz/uptime-monitor/internal/service"
+	"github.com/thwqsz/uptime-monitor/internal/worker"
 	"go.uber.org/zap"
 )
 
@@ -46,11 +48,15 @@ func main() {
 	// Подключаю чекер
 	check := checker.NewHTTPChecker(http.Client{})
 	logRepo := repository.NewPostgresCheckLogRepository(database)
-	CheckService := service.NewCheckService(logRepo, repoTarget, check)
-	checkHandler := api.NewCheckHandler(CheckService)
+	checkService := service.NewCheckService(logRepo, repoTarget, check)
+	checkHandler := api.NewCheckHandler(checkService)
+
+	// Подключаю воркер
+	loop := worker.NewLoop(checkService, repoTarget, log)
+	go loop.Run(context.Background())
 
 	r := chi.NewRouter()
-	r.Get("/targets/{id}/check", checkHandler.CheckHandler)
+
 	r.Post("/auth/register", authHandler.RegisterHandler)
 	r.Post("/auth/login", authHandler.LoginHandler)
 	r.Group(func(r chi.Router) {
@@ -59,7 +65,7 @@ func main() {
 		r.Post("/targets", targetHandler.TargetCreateHandler)
 		r.Get("/targets", targetHandler.TargetListHandler)
 		r.Delete("/targets/{id}", targetHandler.DeleteTargetHandler)
-
+		r.Get("/targets/{id}/check", checkHandler.CheckHandler)
 	})
 
 	port := fmt.Sprintf(":%d", conf.Port)

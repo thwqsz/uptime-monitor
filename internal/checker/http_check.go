@@ -28,7 +28,6 @@ func NewHTTPChecker(client http.Client) *HTTPChecker {
 func (c *HTTPChecker) Check(ctx context.Context, url string, timeout time.Duration) (*CheckResponse, error) {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
