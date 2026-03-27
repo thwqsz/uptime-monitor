@@ -20,6 +20,9 @@ func NewTargetHandler(targetService *service.TargetService) *TargetHandler {
 	return &TargetHandler{targetService: targetService}
 }
 
+//type ITargetService interface {
+//}
+
 type TargetHandler struct {
 	targetService *service.TargetService
 }

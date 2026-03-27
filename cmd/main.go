@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 
@@ -11,9 +10,8 @@ import (
 	"github.com/thwqsz/uptime-monitor/internal/config"
 	"github.com/thwqsz/uptime-monitor/internal/db"
 	"github.com/thwqsz/uptime-monitor/internal/logger"
-	"github.com/thwqsz/uptime-monitor/internal/repository"
+	"github.com/thwqsz/uptime-monitor/internal/repository/postgres"
 	"github.com/thwqsz/uptime-monitor/internal/service"
-	"github.com/thwqsz/uptime-monitor/internal/worker"
 	"go.uber.org/zap"
 )
 
@@ -37,23 +35,23 @@ func main() {
 	defer database.Close()
 	log.Info("database is connected")
 
-	userRepo := repository.NewUserRepository(database)
+	userRepo := postgres.NewUserRepository(database)
 	authService := service.NewAuthService(userRepo, conf.JWTSecret)
 	authHandler := api.NewAuthHandler(authService)
 
-	repoTarget := repository.NewPostgresTargetRepository(database)
+	repoTarget := postgres.NewPostgresTargetRepository(database)
 	targetService := service.NewTargetService(repoTarget)
 	targetHandler := api.NewTargetHandler(targetService)
 
 	// Подключаю чекер
 	check := checker.NewHTTPChecker(http.Client{})
-	logRepo := repository.NewPostgresCheckLogRepository(database)
+	logRepo := postgres.NewPostgresCheckLogRepository(database)
 	checkService := service.NewCheckService(logRepo, repoTarget, check)
 	checkHandler := api.NewCheckHandler(checkService)
 
 	// Подключаю воркер
-	loop := worker.NewLoop(checkService, repoTarget, log)
-	go loop.Run(context.Background())
+	//loop := worker.NewLoop(checkService, repoTarget, log)
+	//go loop.Run(context.Background())
 
 	r := chi.NewRouter()
 

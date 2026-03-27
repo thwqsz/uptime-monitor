@@ -1,4 +1,4 @@
-package repository
+package postgres
 
 import (
 	"context"
@@ -6,10 +6,6 @@ import (
 
 	"github.com/thwqsz/uptime-monitor/internal/models"
 )
-
-type CheckLogRepository interface {
-	CreateCheckLog(ctx context.Context, log *models.CheckLog) error
-}
 
 type PostgresCheckLogRepository struct {
 	db *sql.DB

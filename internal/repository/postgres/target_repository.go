@@ -1,4 +1,4 @@
-package repository
+package postgres
 
 import (
 	"context"
@@ -7,13 +7,6 @@ import (
 	"github.com/thwqsz/uptime-monitor/internal/models"
 )
 
-type TargetRepository interface {
-	CreateTarget(ctx context.Context, target *models.Target) error
-	GetTargetsByUserID(ctx context.Context, userID int64) ([]*models.Target, error)
-	DeleteTarget(ctx context.Context, targetID, userID int64) (int64, error)
-	GetTargetByID(ctx context.Context, targetID int64) (*models.Target, error)
-	GetAllTargets(ctx context.Context) ([]*models.Target, error)
-}
 type PostgresTargetRepository struct {
 	db *sql.DB
 }

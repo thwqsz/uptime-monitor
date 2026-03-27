@@ -1,4 +1,4 @@
-package repository
+package postgres
 
 import (
 	"context"
@@ -6,11 +6,6 @@ import (
 
 	"github.com/thwqsz/uptime-monitor/internal/models"
 )
-
-type UserRepository interface {
-	CreateUser(ctx context.Context, user *models.User) error
-	GetByEmail(ctx context.Context, email string) (*models.User, error)
-}
 
 type PostgresUserRepository struct {
 	db *sql.DB
