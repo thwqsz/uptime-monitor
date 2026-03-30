@@ -19,9 +19,9 @@ type HTTPChecker struct {
 	Client http.Client
 }
 
-func NewHTTPChecker(client http.Client) *HTTPChecker {
+func NewHTTPChecker(client *http.Client) *HTTPChecker {
 	return &HTTPChecker{
-		Client: client,
+		Client: *client,
 	}
 }
 

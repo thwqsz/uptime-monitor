@@ -17,19 +17,25 @@ var ErrNoTargetFound = errors.New("no target found")
 var ErrMultipleTargetsDeleted = errors.New("multiple target deleted")
 var ErrInvalidTargetID = errors.New("invalid targetID")
 
+type schedulerControl interface {
+	StartTarget(target *models.Target)
+	StopTarget(targetID int64)
+}
 type TargetService struct {
-	repo repository.TargetRepository
+	repo      repository.TargetRepository
+	scheduler schedulerControl
 }
 
-func NewTargetService(repo repository.TargetRepository) *TargetService {
+func NewTargetService(repo repository.TargetRepository, scheduler schedulerControl) *TargetService {
 	return &TargetService{
-		repo: repo,
+		repo:      repo,
+		scheduler: scheduler,
 	}
 }
 
 func (s *TargetService) CreateTarget(ctx context.Context, userID int64, url string, timeout, interval int) (*models.Target, error) {
 	url = strings.TrimSpace(url)
-	if !strings.HasPrefix(url, "http") {
+	if !(strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://")) {
 		return nil, ErrInvalidURL
 	}
 	if interval <= 0 {
@@ -48,6 +54,9 @@ func (s *TargetService) CreateTarget(ctx context.Context, userID int64, url stri
 	err := s.repo.CreateTarget(ctx, &target)
 	if err != nil {
 		return nil, err
+	}
+	if s.scheduler != nil {
+		s.scheduler.StartTarget(&target)
 	}
 	return &target, nil
 }
@@ -78,6 +87,9 @@ func (s *TargetService) DeleteTarget(ctx context.Context, targetID, userID int64
 	case 0:
 		return ErrNoTargetFound
 	case 1:
+		if s.scheduler != nil {
+			s.scheduler.StopTarget(targetID)
+		}
 		return nil
 	default:
 		return ErrMultipleTargetsDeleted

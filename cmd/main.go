@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/thwqsz/uptime-monitor/internal/logger"
 	"github.com/thwqsz/uptime-monitor/internal/repository/postgres"
 	"github.com/thwqsz/uptime-monitor/internal/service"
+	"github.com/thwqsz/uptime-monitor/internal/worker"
 	"go.uber.org/zap"
 )
 
@@ -40,19 +42,15 @@ func main() {
 	authHandler := api.NewAuthHandler(authService)
 
 	repoTarget := postgres.NewPostgresTargetRepository(database)
-	targetService := service.NewTargetService(repoTarget)
-	targetHandler := api.NewTargetHandler(targetService)
-
-	// Подключаю чекер
-	check := checker.NewHTTPChecker(http.Client{})
+	check := checker.NewHTTPChecker(&http.Client{})
+	rootCtx := context.Background()
 	logRepo := postgres.NewPostgresCheckLogRepository(database)
 	checkService := service.NewCheckService(logRepo, repoTarget, check)
+	loop := worker.NewLoop(repoTarget, checkService, 10, log, rootCtx)
+	go loop.Run()
+	targetService := service.NewTargetService(repoTarget, loop)
+	targetHandler := api.NewTargetHandler(targetService)
 	checkHandler := api.NewCheckHandler(checkService)
-
-	// Подключаю воркер
-	//loop := worker.NewLoop(checkService, repoTarget, log)
-	//go loop.Run(context.Background())
-
 	r := chi.NewRouter()
 
 	r.Post("/auth/register", authHandler.RegisterHandler)
