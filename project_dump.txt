@@ -1,7 +1,8 @@
-FILE: ./cmd/main.go
+===== FILE: ./cmd/main.go =====
 package main
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/thwqsz/uptime-monitor/internal/logger"
 	"github.com/thwqsz/uptime-monitor/internal/repository/postgres"
 	"github.com/thwqsz/uptime-monitor/internal/service"
+	"github.com/thwqsz/uptime-monitor/internal/worker"
 	"go.uber.org/zap"
 )
 
@@ -41,19 +43,15 @@ func main() {
 	authHandler := api.NewAuthHandler(authService)
 
 	repoTarget := postgres.NewPostgresTargetRepository(database)
-	targetService := service.NewTargetService(repoTarget)
-	targetHandler := api.NewTargetHandler(targetService)
-
-	// Подключаю чекер
-	check := checker.NewHTTPChecker(http.Client{})
+	check := checker.NewHTTPChecker(&http.Client{})
+	rootCtx := context.Background()
 	logRepo := postgres.NewPostgresCheckLogRepository(database)
 	checkService := service.NewCheckService(logRepo, repoTarget, check)
+	loop := worker.NewLoop(repoTarget, checkService, 10, log, rootCtx)
+	go loop.Run()
+	targetService := service.NewTargetService(repoTarget, loop)
+	targetHandler := api.NewTargetHandler(targetService)
 	checkHandler := api.NewCheckHandler(checkService)
-
-	// Подключаю воркер
-	//loop := worker.NewLoop(checkService, repoTarget, log)
-	//go loop.Run(context.Background())
-
 	r := chi.NewRouter()
 
 	r.Post("/auth/register", authHandler.RegisterHandler)
@@ -81,10 +79,10 @@ func testHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Write([]byte(fmt.Sprintf("%v", userID)))
 }
--e 
----
 
-FILE: ./internal/repository/postgres/checkLog_repository.go
+
+
+===== FILE: ./internal/repository/postgres/checkLog_repository.go =====
 package postgres
 
 import (
@@ -113,10 +111,10 @@ func (r *PostgresCheckLogRepository) CreateCheckLog(ctx context.Context, log *mo
 	}
 	return nil
 }
--e 
----
 
-FILE: ./internal/repository/postgres/target_repository.go
+
+
+===== FILE: ./internal/repository/postgres/target_repository.go =====
 package postgres
 
 import (
@@ -221,10 +219,10 @@ func (r *PostgresTargetRepository) GetAllTargets(ctx context.Context) ([]*models
 	}
 	return targets, nil
 }
--e 
----
 
-FILE: ./internal/repository/postgres/user_repository.go
+
+
+===== FILE: ./internal/repository/postgres/user_repository.go =====
 package postgres
 
 import (
@@ -270,10 +268,10 @@ func (r *PostgresUserRepository) GetByEmail(ctx context.Context, email string) (
 	}
 	return &user, nil
 }
--e 
----
 
-FILE: ./internal/repository/repository.go
+
+
+===== FILE: ./internal/repository/repository.go =====
 package repository
 
 import (
@@ -298,10 +296,10 @@ type UserRepository interface {
 	CreateUser(ctx context.Context, user *models.User) error
 	GetByEmail(ctx context.Context, email string) (*models.User, error)
 }
--e 
----
 
-FILE: ./internal/logger/logger.go
+
+
+===== FILE: ./internal/logger/logger.go =====
 package logger
 
 import (
@@ -315,10 +313,10 @@ func New() (*zap.Logger, error) {
 	}
 	return log, nil
 }
--e 
----
 
-FILE: ./internal/config/config.go
+
+
+===== FILE: ./internal/config/config.go =====
 package config
 
 import (
@@ -428,10 +426,10 @@ func Load() (Config, error) {
 	return conf, nil
 
 }
--e 
----
 
-FILE: ./internal/checker/http_check.go
+
+
+===== FILE: ./internal/checker/http_check.go =====
 package checker
 
 import (
@@ -453,9 +451,9 @@ type HTTPChecker struct {
 	Client http.Client
 }
 
-func NewHTTPChecker(client http.Client) *HTTPChecker {
+func NewHTTPChecker(client *http.Client) *HTTPChecker {
 	return &HTTPChecker{
-		Client: client,
+		Client: *client,
 	}
 }
 
@@ -488,10 +486,10 @@ func (c *HTTPChecker) Check(ctx context.Context, url string, timeout time.Durati
 	return &checkResponse, nil
 
 }
--e 
----
 
-FILE: ./internal/models/user.go
+
+
+===== FILE: ./internal/models/user.go =====
 package models
 
 import "time"
@@ -502,10 +500,10 @@ type User struct {
 	PasswordHash string
 	CreatedAt    time.Time
 }
--e 
----
 
-FILE: ./internal/models/target.go
+
+
+===== FILE: ./internal/models/target.go =====
 package models
 
 import "time"
@@ -518,10 +516,10 @@ type Target struct {
 	IntervalTime int
 	CreatedAt    time.Time
 }
--e 
----
 
-FILE: ./internal/models/check_log.go
+
+
+===== FILE: ./internal/models/check_log.go =====
 package models
 
 import "time"
@@ -535,10 +533,10 @@ type CheckLog struct {
 	ResponseTimeMs int
 	CheckedAt      time.Time
 }
--e 
----
 
-FILE: ./internal/db/db.go
+
+
+===== FILE: ./internal/db/db.go =====
 package db
 
 import (
@@ -561,10 +559,10 @@ func InitDB(cfg config.DBConfig) (*sql.DB, error) {
 
 	return db, nil
 }
--e 
----
 
-FILE: ./internal/api/targets.go
+
+
+===== FILE: ./internal/api/targets.go =====
 package api
 
 import (
@@ -669,10 +667,10 @@ func (h *TargetHandler) DeleteTargetHandler(w http.ResponseWriter, r *http.Reque
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
--e 
----
 
-FILE: ./internal/api/check.go
+
+
+===== FILE: ./internal/api/check.go =====
 package api
 
 import (
@@ -714,10 +712,10 @@ func (h *CheckHandler) CheckHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 }
--e 
----
 
-FILE: ./internal/api/auth.go
+
+
+===== FILE: ./internal/api/auth.go =====
 package api
 
 import (
@@ -810,10 +808,10 @@ func (h *AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	return
 }
--e 
----
 
-FILE: ./internal/service/auth_service.go
+
+
+===== FILE: ./internal/service/auth_service.go =====
 package service
 
 import (
@@ -886,10 +884,10 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (string
 	}
 	return token, nil
 }
--e 
----
 
-FILE: ./internal/service/target_service.go
+
+
+===== FILE: ./internal/service/target_service.go =====
 package service
 
 import (
@@ -909,19 +907,25 @@ var ErrNoTargetFound = errors.New("no target found")
 var ErrMultipleTargetsDeleted = errors.New("multiple target deleted")
 var ErrInvalidTargetID = errors.New("invalid targetID")
 
+type schedulerControl interface {
+	StartTarget(target *models.Target)
+	StopTarget(targetID int64)
+}
 type TargetService struct {
-	repo repository.TargetRepository
+	repo      repository.TargetRepository
+	scheduler schedulerControl
 }
 
-func NewTargetService(repo repository.TargetRepository) *TargetService {
+func NewTargetService(repo repository.TargetRepository, scheduler schedulerControl) *TargetService {
 	return &TargetService{
-		repo: repo,
+		repo:      repo,
+		scheduler: scheduler,
 	}
 }
 
 func (s *TargetService) CreateTarget(ctx context.Context, userID int64, url string, timeout, interval int) (*models.Target, error) {
 	url = strings.TrimSpace(url)
-	if !strings.HasPrefix(url, "http") {
+	if !(strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://")) {
 		return nil, ErrInvalidURL
 	}
 	if interval <= 0 {
@@ -940,6 +944,9 @@ func (s *TargetService) CreateTarget(ctx context.Context, userID int64, url stri
 	err := s.repo.CreateTarget(ctx, &target)
 	if err != nil {
 		return nil, err
+	}
+	if s.scheduler != nil {
+		s.scheduler.StartTarget(&target)
 	}
 	return &target, nil
 }
@@ -970,15 +977,18 @@ func (s *TargetService) DeleteTarget(ctx context.Context, targetID, userID int64
 	case 0:
 		return ErrNoTargetFound
 	case 1:
+		if s.scheduler != nil {
+			s.scheduler.StopTarget(targetID)
+		}
 		return nil
 	default:
 		return ErrMultipleTargetsDeleted
 	}
 }
--e 
----
 
-FILE: ./internal/service/auth_jwt.go
+
+
+===== FILE: ./internal/service/auth_jwt.go =====
 package service
 
 import (
@@ -1037,10 +1047,10 @@ func ParseToken(tokenString, secret string) (int64, error) {
 
 	return claims.UserID, nil
 }
--e 
----
 
-FILE: ./internal/service/auth_context.go
+
+
+===== FILE: ./internal/service/auth_context.go =====
 package service
 
 import "context"
@@ -1057,10 +1067,10 @@ func UserIDFromContext(ctx context.Context) (int64, bool) {
 	id, ok := ctx.Value(userIDKey).(int64)
 	return id, ok
 }
--e 
----
 
-FILE: ./internal/service/check_service.go
+
+
+===== FILE: ./internal/service/check_service.go =====
 package service
 
 import (
@@ -1128,10 +1138,10 @@ func (s *CheckService) CheckTarget(ctx context.Context, targetID int64) (*models
 	}
 	return &ans, nil
 }
--e 
----
 
-FILE: ./internal/service/auth_middleware.go
+
+
+===== FILE: ./internal/service/auth_middleware.go =====
 package service
 
 import (
@@ -1158,106 +1168,134 @@ func JWTMiddleware(secret string) func(http.Handler) http.Handler {
 		})
 	}
 }
--e 
----
 
-FILE: ./internal/worker/loop.go
+
+
+===== FILE: ./internal/worker/loop.go =====
 package worker
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/thwqsz/uptime-monitor/internal/models"
-	"github.com/thwqsz/uptime-monitor/internal/repository"
-	"github.com/thwqsz/uptime-monitor/internal/service"
 	"go.uber.org/zap"
 )
 
+type GetAllTargeter interface {
+	GetAllTargets(ctx context.Context) ([]*models.Target, error)
+}
+
+type Checker interface {
+	CheckTarget(ctx context.Context, targetID int64) (*models.CheckLog, error)
+}
+
 type Loop struct {
-	check       *service.CheckService
-	targets     repository.TargetRepository
-	log         *zap.Logger
-	workerCount int
-	jobs        chan Job
+	source          GetAllTargeter
+	targetCheck     Checker
+	workerCount     int
+	jobs            chan int64
+	log             *zap.Logger
+	targetCancelMap map[int64]context.CancelFunc
+	mu              sync.Mutex
+	ctx             context.Context
 }
 
-func NewLoop(check *service.CheckService, targets repository.TargetRepository, log *zap.Logger, workerCount int) *Loop {
-	return &Loop{check: check, targets: targets, log: log, workerCount: workerCount, jobs: make(chan Job, workerCount)}
+func NewLoop(source GetAllTargeter, targetCheck Checker, workerCount int, log *zap.Logger, ctx context.Context) *Loop {
+	return &Loop{
+		source:          source,
+		targetCheck:     targetCheck,
+		workerCount:     workerCount,
+		jobs:            make(chan int64, workerCount),
+		log:             log,
+		targetCancelMap: make(map[int64]context.CancelFunc),
+		ctx:             ctx,
+	}
 }
 
-type Job struct {
-	TargetID int64
-	DoneCh   chan struct{}
-}
-
-func (w *Loop) Run(ctx context.Context) {
+func (w *Loop) Run() {
 	for i := 0; i < w.workerCount; i++ {
-		go w.worker(ctx)
+		go w.worker()
+	}
+	targets, err := w.source.GetAllTargets(w.ctx)
+	if err != nil {
+		w.log.Error("error with db", zap.Error(err))
+		return
+	}
+	for _, x := range targets {
+		w.StartTarget(x)
+	}
+	select {
+	case <-w.ctx.Done():
+		return
+	}
+}
+
+func (w *Loop) StartTarget(target *models.Target) {
+	w.mu.Lock()
+	if w.targetCancelMap[target.ID] != nil {
+		w.log.Error("target is already in work")
+		w.mu.Unlock()
+		return
+	}
+	ctxForTarget, cancel := context.WithCancel(w.ctx)
+	w.targetCancelMap[target.ID] = cancel
+	w.mu.Unlock()
+	go w.targetScheduler(ctxForTarget, target)
+}
+
+func (w *Loop) StopTarget(targetID int64) {
+	w.mu.Lock()
+	if w.targetCancelMap[targetID] == nil {
+		w.log.Error("target id not found")
+		w.mu.Unlock()
+		return
+	}
+	cancel := w.targetCancelMap[targetID]
+	delete(w.targetCancelMap, targetID)
+	w.mu.Unlock()
+	cancel()
+}
+
+func (w *Loop) targetScheduler(ctx context.Context, target *models.Target) {
+	ticker := time.NewTicker(time.Duration(target.IntervalTime) * time.Second)
+	defer ticker.Stop()
+	select {
+	case <-ctx.Done():
+		return
+	case w.jobs <- target.ID:
 	}
 	for {
-		if ctx.Err() != nil {
+		select {
+		case <-ctx.Done():
 			return
-		}
-		newTarg, err := w.targets.GetAllTargets(ctx)
-		if err != nil {
-			w.log.Error("error with db", zap.Error(err))
+		case <-ticker.C:
 			select {
 			case <-ctx.Done():
 				return
-			case <-time.After(30 * time.Second):
-				continue
+			case w.jobs <- target.ID:
 			}
 		}
-		w.runBatch(ctx, newTarg)
-		select {
-		case <-ctx.Done():
-			return
-		case <-time.After(30 * time.Second):
-			continue
-		}
 	}
 }
 
-func (w *Loop) runBatch(ctx context.Context, targets []*models.Target) {
-	jobsCount := len(targets)
-	doneCh := make(chan struct{}, jobsCount)
-	for _, x := range targets {
-		select {
-		case w.jobs <- Job{
-			TargetID: x.ID,
-			DoneCh:   doneCh,
-		}:
-		case <-ctx.Done():
-			return
-		}
-	}
-	for i := 0; i < jobsCount; i++ {
-		select {
-		case <-ctx.Done():
-			return
-		case <-doneCh:
-		}
-	}
-}
-
-func (w *Loop) worker(ctx context.Context) {
+func (w *Loop) worker() {
 	for {
 		select {
+		case <-w.ctx.Done():
+			return
 		case job, ok := <-w.jobs:
 			if !ok {
 				return
 			}
-			_, err := w.check.CheckTarget(ctx, job.TargetID)
+			_, err := w.targetCheck.CheckTarget(w.ctx, job)
 			if err != nil {
-				w.log.Error("error during check", zap.Int64("ID", job.TargetID), zap.Error(err))
+				w.log.Error("error during check", zap.Int64("ID", job), zap.Error(err))
 			}
-			job.DoneCh <- struct{}{}
-		case <-ctx.Done():
-			return
 		}
 	}
 }
--e 
----
+
+
 

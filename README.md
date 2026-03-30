@@ -71,3 +71,9 @@
 
 * **Docker Compose:**
 * Полная инфраструктура: `app-api`, `app-checker` ИЛИ `email-seder`, `postgres`, `kafka`, `redis`
+
+find . -name "*.go" -not -path "./vendor/*" -print0 | while IFS= read -r -d '' file; do
+echo "===== FILE: $file ====="
+cat "$file"
+echo -e "\n\n"
+done > project_dump.txt

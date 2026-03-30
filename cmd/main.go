@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/cors"
 	"github.com/thwqsz/uptime-monitor/internal/api"
 	"github.com/thwqsz/uptime-monitor/internal/checker"
 	"github.com/thwqsz/uptime-monitor/internal/config"
@@ -51,7 +52,16 @@ func main() {
 	targetService := service.NewTargetService(repoTarget, loop)
 	targetHandler := api.NewTargetHandler(targetService)
 	checkHandler := api.NewCheckHandler(checkService)
+
 	r := chi.NewRouter()
+
+	r.Use(cors.Handler(cors.Options{
+		AllowedOrigins:   []string{"http://localhost:5173"},
+		AllowedMethods:   []string{"GET", "POST", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type"},
+		AllowCredentials: false,
+		MaxAge:           300,
+	}))
 
 	r.Post("/auth/register", authHandler.RegisterHandler)
 	r.Post("/auth/login", authHandler.LoginHandler)
