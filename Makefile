@@ -2,4 +2,4 @@ include .env
 export
 
 run:
-	go run cmd/main.go
+	go run cmd/api/main.go

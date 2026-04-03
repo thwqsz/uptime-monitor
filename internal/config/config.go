@@ -7,10 +7,10 @@ import (
 )
 
 type Config struct {
-	Port int
-	DB   DBConfig
-
-	JWTSecret string
+	Port        int
+	DB          DBConfig
+	JWTSecret   string
+	WorkerCount int
 }
 type DBConfig struct {
 	Host     string
@@ -79,11 +79,24 @@ func getDBConfig() (DBConfig, error) {
 }
 
 func getJWTSecret() (string, error) {
-	if env := os.Getenv("JWT_SECRET"); env == "" {
+	env := os.Getenv("JWT_SECRET")
+	if env == "" {
 		return "", errors.New("no JWT info")
-	} else {
-		return env, nil
 	}
+	return env, nil
+
+}
+
+func getWorkerCount() (int, error) {
+	env := os.Getenv("WORKER_COUNT")
+	if env == "" {
+		return 0, errors.New("no WORKER_COUNT info")
+	}
+	envInt, err := strconv.Atoi(env)
+	if err != nil {
+		return 0, err
+	}
+	return envInt, nil
 }
 
 func Load() (Config, error) {
@@ -95,15 +108,19 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	workerCount, err := getWorkerCount()
+	if err != nil {
+		return Config{}, err
+	}
 	jwtSecret, err := getJWTSecret()
 	if err != nil {
 		return Config{}, err
 	}
 	conf := Config{
-		Port:      port,
-		DB:        confDB,
-		JWTSecret: jwtSecret,
+		Port:        port,
+		DB:          confDB,
+		JWTSecret:   jwtSecret,
+		WorkerCount: workerCount,
 	}
 	return conf, nil
-
 }

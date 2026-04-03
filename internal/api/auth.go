@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -22,11 +23,16 @@ type AuthResponse struct {
 	Token string `json:"token"`
 }
 
-type AuthHandler struct {
-	authService *service.AuthService
+type authService interface {
+	Register(ctx context.Context, email string, password string) error
+	Login(ctx context.Context, email string, password string) (string, error)
 }
 
-func NewAuthHandler(authS *service.AuthService) *AuthHandler {
+type AuthHandler struct {
+	authService authService
+}
+
+func NewAuthHandler(authS authService) *AuthHandler {
 	return &AuthHandler{authService: authS}
 }
 

@@ -76,4 +76,4 @@ find . -name "*.go" -not -path "./vendor/*" -print0 | while IFS= read -r -d '' f
 echo "===== FILE: $file ====="
 cat "$file"
 echo -e "\n\n"
-done > project_dump.txt
+done > project_dump_new.txt

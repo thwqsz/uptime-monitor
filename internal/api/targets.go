@@ -1,12 +1,15 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/thwqsz/uptime-monitor/internal/auth"
+	"github.com/thwqsz/uptime-monitor/internal/models"
 	"github.com/thwqsz/uptime-monitor/internal/service"
 )
 
@@ -16,19 +19,22 @@ type TargetCreateRequest struct {
 	IntervalTime int    `json:"interval_time"`
 }
 
-func NewTargetHandler(targetService *service.TargetService) *TargetHandler {
+func NewTargetHandler(targetService targetService) *TargetHandler {
 	return &TargetHandler{targetService: targetService}
 }
 
-//type ITargetService interface {
-//}
+type targetService interface {
+	CreateTarget(ctx context.Context, userID int64, url string, timeout int, interval int) (*models.Target, error)
+	ListTargets(ctx context.Context, userID int64) ([]*models.Target, error)
+	DeleteTarget(ctx context.Context, targetID int64, userID int64) error
+}
 
 type TargetHandler struct {
-	targetService *service.TargetService
+	targetService targetService
 }
 
 func (h *TargetHandler) TargetCreateHandler(w http.ResponseWriter, r *http.Request) {
-	userID, ok := service.UserIDFromContext(r.Context())
+	userID, ok := auth.UserIDFromContext(r.Context())
 	if !ok {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
@@ -57,7 +63,7 @@ func (h *TargetHandler) TargetCreateHandler(w http.ResponseWriter, r *http.Reque
 }
 
 func (h *TargetHandler) TargetListHandler(w http.ResponseWriter, r *http.Request) {
-	userID, ok := service.UserIDFromContext(r.Context())
+	userID, ok := auth.UserIDFromContext(r.Context())
 	if !ok {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
@@ -82,7 +88,7 @@ func (h *TargetHandler) DeleteTargetHandler(w http.ResponseWriter, r *http.Reque
 		http.Error(w, "invalid input", http.StatusBadRequest)
 		return
 	}
-	userID, ok := service.UserIDFromContext(r.Context())
+	userID, ok := auth.UserIDFromContext(r.Context())
 	if !ok {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 
+	"github.com/thwqsz/uptime-monitor/internal/auth"
 	"github.com/thwqsz/uptime-monitor/internal/models"
 	"github.com/thwqsz/uptime-monitor/internal/repository"
 	"golang.org/x/crypto/bcrypt"
@@ -64,7 +65,7 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (string
 	if err := ComparePassword(user.PasswordHash, password); err != nil {
 		return "", ErrInvalidCredentials
 	}
-	token, err := GenerateToken(user.ID, s.jwtSecret)
+	token, err := auth.GenerateToken(user.ID, s.jwtSecret)
 	if err != nil {
 		return "", err
 	}

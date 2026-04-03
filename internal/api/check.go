@@ -1,19 +1,24 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/thwqsz/uptime-monitor/internal/service"
+	"github.com/thwqsz/uptime-monitor/internal/models"
 )
 
 type CheckHandler struct {
-	checkService *service.CheckService
+	checkService checkService
 }
 
-func NewCheckHandler(checkServ *service.CheckService) *CheckHandler {
+type checkService interface {
+	CheckTarget(ctx context.Context, targetID int64) (*models.CheckLog, error)
+}
+
+func NewCheckHandler(checkServ checkService) *CheckHandler {
 	return &CheckHandler{checkService: checkServ}
 }
 
