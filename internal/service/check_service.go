@@ -24,14 +24,7 @@ func NewCheckService(checkRepo repository.CheckLogRepository, targetRepo reposit
 	}
 }
 
-func (s *CheckService) CheckTarget(ctx context.Context, targetID int64) (*models.CheckLog, error) {
-	if targetID < 1 {
-		return nil, ErrInvalidTargetID
-	}
-	target, err := s.targetRepo.GetTargetByID(ctx, targetID)
-	if err != nil {
-		return nil, err
-	}
+func (s *CheckService) runCheckTarget(ctx context.Context, target *models.Target) (*models.CheckLog, error) {
 	timeout := time.Duration(target.Timeout) * time.Second
 	resCheck, err := s.check.Check(ctx, target.URL, timeout)
 	if err != nil {
@@ -53,7 +46,7 @@ func (s *CheckService) CheckTarget(ctx context.Context, targetID int64) (*models
 		errorMsg = &msg
 	}
 	ans = models.CheckLog{
-		TargetID:       targetID,
+		TargetID:       target.ID,
 		StatusCode:     resCheck.StatusCode,
 		ResponseTimeMs: respTimeInt,
 		ErrorMsg:       errorMsg,
@@ -64,4 +57,27 @@ func (s *CheckService) CheckTarget(ctx context.Context, targetID int64) (*models
 		return nil, err
 	}
 	return &ans, nil
+}
+
+func (s *CheckService) CheckTargetSystem(ctx context.Context, targetID int64) (*models.CheckLog, error) {
+	target, err := s.targetRepo.GetTargetByID(ctx, targetID)
+	if err != nil {
+		return nil, err
+	}
+	return s.runCheckTarget(ctx, target)
+}
+
+func (s *CheckService) CheckTargetForUser(ctx context.Context, targetID int64, userID int64) (*models.CheckLog, error) {
+	target, err := s.targetRepo.GetTargetByID(ctx, targetID)
+	if err != nil {
+		return nil, err
+	}
+	if target.UserID != userID {
+		return nil, ErrNoTargetFound
+	}
+	check, err := s.runCheckTarget(ctx, target)
+	if err != nil {
+		return nil, err
+	}
+	return check, nil
 }

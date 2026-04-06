@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/thwqsz/uptime-monitor/internal/auth"
 	"github.com/thwqsz/uptime-monitor/internal/models"
 )
 
@@ -15,7 +16,7 @@ type CheckHandler struct {
 }
 
 type checkService interface {
-	CheckTarget(ctx context.Context, targetID int64) (*models.CheckLog, error)
+	CheckTargetForUser(ctx context.Context, targetID, userID int64) (*models.CheckLog, error)
 }
 
 func NewCheckHandler(checkServ checkService) *CheckHandler {
@@ -23,13 +24,18 @@ func NewCheckHandler(checkServ checkService) *CheckHandler {
 }
 
 func (h *CheckHandler) CheckHandler(w http.ResponseWriter, r *http.Request) {
+	userID, ok := auth.UserIDFromContext(r.Context())
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
 	targetIDString := chi.URLParam(r, "id")
 	targetID, err := strconv.ParseInt(targetIDString, 10, 64)
 	if err != nil {
 		http.Error(w, "invalid request", http.StatusBadRequest)
 		return
 	}
-	logTarget, err := h.checkService.CheckTarget(r.Context(), targetID)
+	logTarget, err := h.checkService.CheckTargetForUser(r.Context(), targetID, userID)
 	// тут могут быть разные ошибки, надо позже расписать
 	if err != nil {
 		http.Error(w, "error", http.StatusInternalServerError)

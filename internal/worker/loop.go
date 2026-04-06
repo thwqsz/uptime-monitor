@@ -14,7 +14,7 @@ type GetAllTargeter interface {
 }
 
 type Checker interface {
-	CheckTarget(ctx context.Context, targetID int64) (*models.CheckLog, error)
+	CheckTargetSystem(ctx context.Context, targetID int64) (*models.CheckLog, error)
 }
 
 type Loop struct {
@@ -26,6 +26,8 @@ type Loop struct {
 	targetCancelMap map[int64]context.CancelFunc
 	mu              sync.Mutex
 	ctx             context.Context
+	workerWg        sync.WaitGroup
+	schedulerWg     sync.WaitGroup
 }
 
 func NewLoop(source GetAllTargeter, targetCheck Checker, workerCount int, log *zap.Logger, ctx context.Context) *Loop {
@@ -42,6 +44,7 @@ func NewLoop(source GetAllTargeter, targetCheck Checker, workerCount int, log *z
 
 func (w *Loop) Run() {
 	for i := 0; i < w.workerCount; i++ {
+		w.workerWg.Add(1)
 		go w.worker()
 	}
 	targets, err := w.source.GetAllTargets(w.ctx)
@@ -52,10 +55,23 @@ func (w *Loop) Run() {
 	for _, x := range targets {
 		w.StartTarget(x)
 	}
-	select {
-	case <-w.ctx.Done():
-		return
+	<-w.ctx.Done()
+
+	cancelArr := make([]context.CancelFunc, 0, len(w.targetCancelMap))
+	w.mu.Lock()
+	for targetID, cancel := range w.targetCancelMap {
+		cancelArr = append(cancelArr, cancel)
+		delete(w.targetCancelMap, targetID)
 	}
+	w.mu.Unlock()
+	for _, cancel := range cancelArr {
+		cancel()
+	}
+	w.schedulerWg.Wait()
+	close(w.jobs)
+	w.workerWg.Wait()
+	return
+
 }
 
 func (w *Loop) StartTarget(target *models.Target) {
@@ -68,6 +84,7 @@ func (w *Loop) StartTarget(target *models.Target) {
 	ctxForTarget, cancel := context.WithCancel(w.ctx)
 	w.targetCancelMap[target.ID] = cancel
 	w.mu.Unlock()
+	w.schedulerWg.Add(1)
 	go w.targetScheduler(ctxForTarget, target)
 }
 
@@ -85,6 +102,7 @@ func (w *Loop) StopTarget(targetID int64) {
 }
 
 func (w *Loop) targetScheduler(ctx context.Context, target *models.Target) {
+	defer w.schedulerWg.Done()
 	ticker := time.NewTicker(time.Duration(target.IntervalTime) * time.Second)
 	defer ticker.Stop()
 	select {
@@ -107,18 +125,15 @@ func (w *Loop) targetScheduler(ctx context.Context, target *models.Target) {
 }
 
 func (w *Loop) worker() {
+	defer w.workerWg.Done()
 	for {
-		select {
-		case <-w.ctx.Done():
+		job, ok := <-w.jobs
+		if !ok {
 			return
-		case job, ok := <-w.jobs:
-			if !ok {
-				return
-			}
-			_, err := w.targetCheck.CheckTarget(w.ctx, job)
-			if err != nil {
-				w.log.Error("error during check", zap.Int64("ID", job), zap.Error(err))
-			}
+		}
+		_, err := w.targetCheck.CheckTargetSystem(w.ctx, job)
+		if err != nil {
+			w.log.Error("error during check", zap.Int64("ID", job), zap.Error(err))
 		}
 	}
 }

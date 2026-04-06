@@ -2,8 +2,13 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
@@ -34,7 +39,7 @@ func Run(conf *config.Config, log *zap.Logger) error {
 
 	repoTarget := postgres.NewPostgresTargetRepository(database)
 	check := checker.NewHTTPChecker(&http.Client{})
-	rootCtx := context.Background()
+	rootCtx, cancel := context.WithCancel(context.Background())
 	logRepo := postgres.NewPostgresCheckLogRepository(database)
 	checkService := service.NewCheckService(logRepo, repoTarget, check)
 	loop := worker.NewLoop(repoTarget, checkService, conf.WorkerCount, log, rootCtx)
@@ -65,8 +70,26 @@ func Run(conf *config.Config, log *zap.Logger) error {
 
 	port := fmt.Sprintf(":%d", conf.Port)
 	log.Info("http server started", zap.String("port", port))
-	if err = http.ListenAndServe(port, r); err != nil {
-		return err
+	server := &http.Server{
+		Addr:    port,
+		Handler: r,
+	}
+
+	go func() {
+		if err = server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Fatal("error during ListenAndServe", zap.Error(err))
+		}
+	}()
+
+	chOS := make(chan os.Signal, 1)
+	signal.Notify(chOS, syscall.SIGINT, syscall.SIGTERM)
+	<-chOS
+	log.Info("got stop signal")
+	cancel()
+	ctxForShutDown, cancelCtxForShutDown := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancelCtxForShutDown()
+	if err = server.Shutdown(ctxForShutDown); err != nil {
+		log.Error("server was closed by force, timeout is out", zap.Error(err))
 	}
 	return nil
 }
