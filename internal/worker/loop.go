@@ -43,14 +43,14 @@ func NewLoop(source GetAllTargeter, targetCheck Checker, workerCount int, log *z
 }
 
 func (w *Loop) Run() {
-	for i := 0; i < w.workerCount; i++ {
-		w.workerWg.Add(1)
-		go w.worker()
-	}
 	targets, err := w.source.GetAllTargets(w.ctx)
 	if err != nil {
 		w.log.Error("error with db", zap.Error(err))
 		return
+	}
+	for i := 0; i < w.workerCount; i++ {
+		w.workerWg.Add(1)
+		go w.worker()
 	}
 	for _, x := range targets {
 		w.StartTarget(x)

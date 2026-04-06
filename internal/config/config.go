@@ -30,7 +30,7 @@ func getPort() (int, error) {
 		if p > 0 {
 			port = p
 		} else {
-			return 0, errors.New("wrong parameter for port")
+			return 0, errors.New("config: wrong parameter for port")
 		}
 	}
 	return port, nil
@@ -39,7 +39,7 @@ func getPort() (int, error) {
 func getDBConfig() (DBConfig, error) {
 	config := DBConfig{}
 	if env := os.Getenv("DB_HOST"); env == "" {
-		return DBConfig{}, errors.New("no dbHost info")
+		return DBConfig{}, errors.New("config: no dbHost info")
 	} else {
 		config.Host = env
 	}
@@ -52,25 +52,25 @@ func getDBConfig() (DBConfig, error) {
 		if p > 0 {
 			config.Port = p
 		} else {
-			return DBConfig{}, errors.New("wrong parameter for dbPort")
+			return DBConfig{}, errors.New("config: wrong parameter for dbPort")
 		}
 	} else {
-		return DBConfig{}, errors.New("no dbPort info")
+		return DBConfig{}, errors.New("config: no dbPort info")
 	}
 	if env := os.Getenv("DB_USER"); env == "" {
-		return DBConfig{}, errors.New("no user info")
+		return DBConfig{}, errors.New("config: no user info")
 	} else {
 		config.User = env
 	}
 
 	if env := os.Getenv("DB_PASSWORD"); env == "" {
-		return DBConfig{}, errors.New("no password info")
+		return DBConfig{}, errors.New("config: no password info")
 	} else {
 		config.Password = env
 	}
 
 	if env := os.Getenv("DB_NAME"); env == "" {
-		return DBConfig{}, errors.New("no name info")
+		return DBConfig{}, errors.New("config: no DB_NAME info")
 	} else {
 		config.Name = env
 	}
@@ -81,7 +81,7 @@ func getDBConfig() (DBConfig, error) {
 func getJWTSecret() (string, error) {
 	env := os.Getenv("JWT_SECRET")
 	if env == "" {
-		return "", errors.New("no JWT info")
+		return "", errors.New("config: no JWT info")
 	}
 	return env, nil
 
@@ -90,11 +90,14 @@ func getJWTSecret() (string, error) {
 func getWorkerCount() (int, error) {
 	env := os.Getenv("WORKER_COUNT")
 	if env == "" {
-		return 0, errors.New("no WORKER_COUNT info")
+		return 0, errors.New("config: no WORKER_COUNT info")
 	}
 	envInt, err := strconv.Atoi(env)
 	if err != nil {
 		return 0, err
+	}
+	if envInt < 1 {
+		return 0, errors.New("config: WORKER_COUNT is less than 1")
 	}
 	return envInt, nil
 }

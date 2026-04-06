@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/thwqsz/uptime-monitor/internal/service"
+	"go.uber.org/zap"
 )
 
 type RegisterRequest struct {
@@ -30,10 +31,11 @@ type authService interface {
 
 type AuthHandler struct {
 	authService authService
+	log         *zap.Logger
 }
 
-func NewAuthHandler(authS authService) *AuthHandler {
-	return &AuthHandler{authService: authS}
+func NewAuthHandler(authS authService, log *zap.Logger) *AuthHandler {
+	return &AuthHandler{authService: authS, log: log}
 }
 
 func (h *AuthHandler) RegisterHandler(w http.ResponseWriter, r *http.Request) {
@@ -53,6 +55,7 @@ func (h *AuthHandler) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte("пользователь уже существует"))
 			return
 		}
+		h.log.Error("internal error", zap.Error(err))
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("ошибка сервера"))
 		return
@@ -81,18 +84,18 @@ func (h *AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte("неправильные данные для входа"))
 			return
 		}
+		h.log.Error("internal error", zap.Error(err))
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("ошибка сервера"))
 		return
 	}
 	resp := AuthResponse{Token: token}
 	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
 	err = json.NewEncoder(w).Encode(&resp)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("ошибка сервера"))
+		h.log.Error("error during Encode", zap.Error(err))
 		return
 	}
-	w.WriteHeader(http.StatusOK)
 	return
 }

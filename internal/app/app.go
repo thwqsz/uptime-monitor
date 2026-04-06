@@ -35,7 +35,7 @@ func Run(conf *config.Config, log *zap.Logger) error {
 
 	userRepo := postgres.NewUserRepository(database)
 	authService := service.NewAuthService(userRepo, conf.JWTSecret)
-	authHandler := api.NewAuthHandler(authService)
+	authHandler := api.NewAuthHandler(authService, log)
 
 	repoTarget := postgres.NewPostgresTargetRepository(database)
 	check := checker.NewHTTPChecker(&http.Client{})

@@ -3,12 +3,14 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/thwqsz/uptime-monitor/internal/auth"
 	"github.com/thwqsz/uptime-monitor/internal/models"
+	"github.com/thwqsz/uptime-monitor/internal/service"
 )
 
 type CheckHandler struct {
@@ -36,12 +38,19 @@ func (h *CheckHandler) CheckHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logTarget, err := h.checkService.CheckTargetForUser(r.Context(), targetID, userID)
-	// тут могут быть разные ошибки, надо позже расписать
 	if err != nil {
-		http.Error(w, "error", http.StatusInternalServerError)
-		return
+		switch {
+		case errors.Is(err, service.ErrNoTargetFound):
+			http.Error(w, "no target found", http.StatusNotFound)
+			return
+		case errors.Is(err, service.ErrAccessDenied):
+			http.Error(w, "error access denied", http.StatusForbidden)
+			return
+		default:
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
 	}
-
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(logTarget); err != nil {
