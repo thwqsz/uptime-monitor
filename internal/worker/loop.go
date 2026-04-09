@@ -13,13 +13,13 @@ type GetAllTargeter interface {
 	GetAllTargets(ctx context.Context) ([]*models.Target, error)
 }
 
-type Checker interface {
+type TargetChecker interface {
 	CheckTargetSystem(ctx context.Context, targetID int64) (*models.CheckLog, error)
 }
 
 type Loop struct {
 	source          GetAllTargeter
-	targetCheck     Checker
+	targetCheck     TargetChecker
 	workerCount     int
 	jobs            chan int64
 	log             *zap.Logger
@@ -30,7 +30,7 @@ type Loop struct {
 	schedulerWg     sync.WaitGroup
 }
 
-func NewLoop(source GetAllTargeter, targetCheck Checker, workerCount int, log *zap.Logger, ctx context.Context) *Loop {
+func NewLoop(source GetAllTargeter, targetCheck TargetChecker, workerCount int, log *zap.Logger, ctx context.Context) *Loop {
 	return &Loop{
 		source:          source,
 		targetCheck:     targetCheck,

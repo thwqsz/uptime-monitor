@@ -3,10 +3,10 @@ package service
 import (
 	"context"
 	"errors"
-	"strings"
-
 	"github.com/thwqsz/uptime-monitor/internal/models"
 	"github.com/thwqsz/uptime-monitor/internal/repository"
+	neturl "net/url"
+	"strings"
 )
 
 var ErrInvalidURL = errors.New("invalid url")
@@ -17,16 +17,16 @@ var ErrNoTargetFound = errors.New("no target found")
 var ErrMultipleTargetsDeleted = errors.New("multiple target deleted")
 var ErrInvalidTargetID = errors.New("invalid targetID")
 
-type schedulerControl interface {
+type SchedulerControl interface {
 	StartTarget(target *models.Target)
 	StopTarget(targetID int64)
 }
 type TargetService struct {
 	repo      repository.TargetRepository
-	scheduler schedulerControl
+	scheduler SchedulerControl
 }
 
-func NewTargetService(repo repository.TargetRepository, scheduler schedulerControl) *TargetService {
+func NewTargetService(repo repository.TargetRepository, scheduler SchedulerControl) *TargetService {
 	return &TargetService{
 		repo:      repo,
 		scheduler: scheduler,
@@ -35,7 +35,7 @@ func NewTargetService(repo repository.TargetRepository, scheduler schedulerContr
 
 func (s *TargetService) CreateTarget(ctx context.Context, userID int64, url string, timeout, interval int) (*models.Target, error) {
 	url = strings.TrimSpace(url)
-	if !(strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://")) {
+	if _, err := neturl.ParseRequestURI(url); err != nil {
 		return nil, ErrInvalidURL
 	}
 	if interval <= 0 {

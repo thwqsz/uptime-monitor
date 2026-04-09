@@ -16,12 +16,12 @@ type CheckResponse struct {
 }
 
 type HTTPChecker struct {
-	Client http.Client
+	Client *http.Client
 }
 
 func NewHTTPChecker(client *http.Client) *HTTPChecker {
 	return &HTTPChecker{
-		Client: *client,
+		Client: client,
 	}
 }
 
