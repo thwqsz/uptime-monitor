@@ -1,4 +1,4 @@
-package kafka
+package broker
 
 import (
 	"context"
@@ -10,7 +10,7 @@ import (
 )
 
 type CheckResultProcessor interface {
-	ProcessCheckResult(ctx context.Context, resCheck *contracts.CheckResult) error
+	ProcessCheckResultForSystem(ctx context.Context, resCheck *contracts.CheckResult) error
 }
 
 type Consumer struct {
@@ -42,7 +42,7 @@ func (c *Consumer) Run(ctx context.Context) {
 			c.log.Error("error during making struct from json", zap.Error(err))
 			continue
 		}
-		err = c.resultService.ProcessCheckResult(ctx, &taskResult)
+		err = c.resultService.ProcessCheckResultForSystem(ctx, &taskResult)
 		if err != nil {
 			c.log.Error("error during saving check_result", zap.Error(err))
 			continue

@@ -18,7 +18,7 @@ type CheckHandler struct {
 }
 
 type checkService interface {
-	CheckTargetForUser(ctx context.Context, targetID, userID int64) (*models.CheckLog, error)
+	ManualCheck(ctx context.Context, targetID int64, userID int64) (*models.CheckLog, error)
 }
 
 func NewCheckHandler(checkServ checkService) *CheckHandler {
@@ -37,7 +37,7 @@ func (h *CheckHandler) CheckHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid request", http.StatusBadRequest)
 		return
 	}
-	logTarget, err := h.checkService.CheckTargetForUser(r.Context(), targetID, userID)
+	logTarget, err := h.checkService.ManualCheck(r.Context(), targetID, userID)
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrNoTargetFound):

@@ -1,4 +1,4 @@
-package kafka
+package broker
 
 import (
 	"context"
@@ -21,10 +21,10 @@ func NewProducer(writer *kafka.Writer, log *zap.Logger) *Producer {
 	return &Producer{writer: writer, log: log}
 }
 
-func (p *Producer) SendTask(ctx context.Context, target *models.Target) error {
+func (p *Producer) SendTask(ctx context.Context, target *models.Target) (string, error) {
 	uniqID, err := uuid.NewUUID()
 	if err != nil {
-		return err
+		return "", err
 	}
 	uniqIDStr := uniqID.String()
 	now := time.Now().UTC().Format(time.RFC3339)
@@ -38,14 +38,14 @@ func (p *Producer) SendTask(ctx context.Context, target *models.Target) error {
 	taskBytes, err := json.Marshal(taskForSent)
 	if err != nil {
 		p.log.Error("error during making json from target", zap.Error(err))
-		return err
+		return "", err
 	}
 	if err := p.writer.WriteMessages(ctx, kafka.Message{
 		Key:   []byte("check_task"),
 		Value: taskBytes,
 	}); err != nil {
-		return err
+		return "", err
 	}
 
-	return nil
+	return uniqIDStr, nil
 }

@@ -12,33 +12,32 @@ import (
 type GetAllTargeter interface {
 	GetAllTargets(ctx context.Context) ([]*models.Target, error)
 }
-
-type TargetChecker interface {
-	CheckTargetSystem(ctx context.Context, targetID int64) (*models.CheckLog, error)
+type TaskSender interface {
+	SendTask(ctx context.Context, target *models.Target) (string, error)
 }
 
 type Loop struct {
-	source          GetAllTargeter
-	targetCheck     TargetChecker
-	workerCount     int
-	jobs            chan int64
-	log             *zap.Logger
-	targetCancelMap map[int64]context.CancelFunc
-	mu              sync.Mutex
-	ctx             context.Context
-	workerWg        sync.WaitGroup
-	schedulerWg     sync.WaitGroup
+	source             GetAllTargeter
+	targetSendForCheck TaskSender
+	workerCount        int
+	jobs               chan *models.Target
+	log                *zap.Logger
+	targetCancelMap    map[int64]context.CancelFunc
+	mu                 sync.Mutex
+	ctx                context.Context
+	workerWg           sync.WaitGroup
+	schedulerWg        sync.WaitGroup
 }
 
-func NewLoop(source GetAllTargeter, targetCheck TargetChecker, workerCount int, log *zap.Logger, ctx context.Context) *Loop {
+func NewLoop(source GetAllTargeter, targetSendForCheck TaskSender, workerCount int, log *zap.Logger, ctx context.Context) *Loop {
 	return &Loop{
-		source:          source,
-		targetCheck:     targetCheck,
-		workerCount:     workerCount,
-		jobs:            make(chan int64, workerCount),
-		log:             log,
-		targetCancelMap: make(map[int64]context.CancelFunc),
-		ctx:             ctx,
+		source:             source,
+		targetSendForCheck: targetSendForCheck,
+		workerCount:        workerCount,
+		jobs:               make(chan *models.Target, workerCount),
+		log:                log,
+		targetCancelMap:    make(map[int64]context.CancelFunc),
+		ctx:                ctx,
 	}
 }
 
@@ -108,7 +107,7 @@ func (w *Loop) targetScheduler(ctx context.Context, target *models.Target) {
 	select {
 	case <-ctx.Done():
 		return
-	case w.jobs <- target.ID:
+	case w.jobs <- target:
 	}
 	for {
 		select {
@@ -118,7 +117,7 @@ func (w *Loop) targetScheduler(ctx context.Context, target *models.Target) {
 			select {
 			case <-ctx.Done():
 				return
-			case w.jobs <- target.ID:
+			case w.jobs <- target:
 			}
 		}
 	}
@@ -131,9 +130,9 @@ func (w *Loop) worker() {
 		if !ok {
 			return
 		}
-		_, err := w.targetCheck.CheckTargetSystem(w.ctx, job)
+		_, err := w.targetSendForCheck.SendTask(w.ctx, job)
 		if err != nil {
-			w.log.Error("error during check", zap.Int64("ID", job), zap.Error(err))
+			w.log.Error("error during check", zap.Int64("ID", job.ID), zap.Error(err))
 		}
 	}
 }

@@ -10,6 +10,10 @@ import (
 	"github.com/thwqsz/uptime-monitor/internal/repository"
 )
 
+type TaskSender interface {
+	SendTask(ctx context.Context, target *models.Target) (string, error)
+}
+
 type CheckServiceForKafka struct {
 	checkRepo repository.CheckLogRepository
 }
@@ -20,7 +24,19 @@ func NewCheckServiceForKafka(checkRepo repository.CheckLogRepository) *CheckServ
 	}
 }
 
-func (s *CheckServiceForKafka) ProcessCheckResult(ctx context.Context, resCheck *contracts.CheckResult) error {
+type CheckBeforeSend struct {
+	targetRepo  repository.TargetRepository
+	sendToKafka TaskSender
+}
+
+func NewCheckBeforeSend(targetRepo repository.TargetRepository, sendToKafka TaskSender) *CheckBeforeSend {
+	return &CheckBeforeSend{
+		targetRepo:  targetRepo,
+		sendToKafka: sendToKafka,
+	}
+}
+
+func (s *CheckServiceForKafka) ProcessCheckResultForSystem(ctx context.Context, resCheck *contracts.CheckResult) error {
 	if resCheck.TargetID < 1 {
 		return errors.New("invalid targetID")
 	}
@@ -51,3 +67,21 @@ func (s *CheckServiceForKafka) ProcessCheckResult(ctx context.Context, resCheck 
 	}
 	return nil
 }
+
+//func (s *CheckBeforeSend) SendCheckForUser(ctx context.Context, targetID int64, userID int64) (string, error) {
+//	target, err := s.targetRepo.GetTargetByID(ctx, targetID)
+//	if err != nil {
+//		if errors.Is(err, sql.ErrNoRows) {
+//			return "", ErrNoTargetFound
+//		}
+//		return "", err
+//	}
+//	if target.UserID != userID {
+//		return "", ErrAccessDenied
+//	}
+//	uniqID, err := s.sendToKafka.SendTask(ctx, target)
+//	if err != nil {
+//		return "", err
+//	}
+//	return uniqID, nil
+//}

@@ -73,21 +73,3 @@ func (s *CheckService) CheckTargetSystem(ctx context.Context, targetID int64) (*
 	}
 	return s.runCheckTarget(ctx, target)
 }
-
-func (s *CheckService) CheckTargetForUser(ctx context.Context, targetID int64, userID int64) (*models.CheckLog, error) {
-	target, err := s.targetRepo.GetTargetByID(ctx, targetID)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrNoTargetFound
-		}
-		return nil, err
-	}
-	if target.UserID != userID {
-		return nil, ErrAccessDenied
-	}
-	check, err := s.runCheckTarget(ctx, target)
-	if err != nil {
-		return nil, err
-	}
-	return check, nil
-}

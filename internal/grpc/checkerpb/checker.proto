@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package checkerpb;
+
+option go_package = "github.com/thwqsz/uptime-monitor/internal/grpc/checkerpb";
+
+service CheckerService{
+  rpc Check(CheckRequest) returns (CheckResponse);
+}
+
+message CheckRequest{
+  string url = 1;
+  int32 timeout_sec = 2;
+}
+
+message CheckResponse{
+  string status = 1;
+  int32 response_time_ms = 2;
+  string err_msg = 3;
+  int32 status_code = 4;
+}
