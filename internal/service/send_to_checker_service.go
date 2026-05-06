@@ -8,33 +8,43 @@ import (
 	"github.com/thwqsz/uptime-monitor/internal/contracts"
 	"github.com/thwqsz/uptime-monitor/internal/models"
 	"github.com/thwqsz/uptime-monitor/internal/repository"
+	"go.uber.org/zap"
 )
 
 type TaskSender interface {
 	SendTask(ctx context.Context, target *models.Target) (string, error)
 }
 
+type CacheManager interface {
+	SaveStatus(ctx context.Context, targetID int64, status string) error
+	GetLastStatus(ctx context.Context, id int64) (string, error)
+}
+
 type CheckServiceForKafka struct {
-	checkRepo repository.CheckLogRepository
+	checkRepo    repository.CheckLogRepository
+	cacheManager CacheManager
+	log          *zap.Logger
 }
 
-func NewCheckServiceForKafka(checkRepo repository.CheckLogRepository) *CheckServiceForKafka {
+func NewCheckServiceForKafka(checkRepo repository.CheckLogRepository, cacheManager CacheManager, log *zap.Logger) *CheckServiceForKafka {
 	return &CheckServiceForKafka{
-		checkRepo: checkRepo,
+		checkRepo:    checkRepo,
+		cacheManager: cacheManager,
+		log:          log,
 	}
 }
 
-type CheckBeforeSend struct {
-	targetRepo  repository.TargetRepository
-	sendToKafka TaskSender
-}
-
-func NewCheckBeforeSend(targetRepo repository.TargetRepository, sendToKafka TaskSender) *CheckBeforeSend {
-	return &CheckBeforeSend{
-		targetRepo:  targetRepo,
-		sendToKafka: sendToKafka,
-	}
-}
+//type CheckBeforeSend struct {
+//	targetRepo  repository.TargetRepository
+//	sendToKafka TaskSender
+//}
+//
+//func NewCheckBeforeSend(targetRepo repository.TargetRepository, sendToKafka TaskSender) *CheckBeforeSend {
+//	return &CheckBeforeSend{
+//		targetRepo:  targetRepo,
+//		sendToKafka: sendToKafka,
+//	}
+//}
 
 func (s *CheckServiceForKafka) ProcessCheckResultForSystem(ctx context.Context, resCheck *contracts.CheckResult) error {
 	if resCheck.TargetID < 1 {
@@ -65,7 +75,18 @@ func (s *CheckServiceForKafka) ProcessCheckResultForSystem(ctx context.Context, 
 	if err != nil {
 		return err
 	}
-	return nil
+	prevStatus, err := s.cacheManager.GetLastStatus(ctx, resCheck.TargetID)
+	if err != nil {
+		return err
+	}
+	if prevStatus == "up" && resCheck.Status == "down" {
+		s.log.Info("server is down")
+	}
+	if prevStatus == "down" && resCheck.Status == "up" {
+		s.log.Info("server is recovered")
+	}
+	
+	return s.cacheManager.SaveStatus(ctx, resCheck.TargetID, resCheck.Status)
 }
 
 //func (s *CheckBeforeSend) SendCheckForUser(ctx context.Context, targetID int64, userID int64) (string, error) {

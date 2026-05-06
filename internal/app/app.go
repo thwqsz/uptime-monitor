@@ -16,6 +16,7 @@ import (
 	"github.com/thwqsz/uptime-monitor/internal/api"
 	"github.com/thwqsz/uptime-monitor/internal/auth"
 	"github.com/thwqsz/uptime-monitor/internal/broker"
+	"github.com/thwqsz/uptime-monitor/internal/cache"
 	"github.com/thwqsz/uptime-monitor/internal/config"
 	"github.com/thwqsz/uptime-monitor/internal/db"
 	"github.com/thwqsz/uptime-monitor/internal/grpc/checkerpb"
@@ -30,6 +31,7 @@ import (
 func Run(conf *config.Config, log *zap.Logger) error {
 	log.Info("starting uptime_monitor")
 
+	// подключение бд
 	database, err := db.InitDB(conf.DB)
 	if err != nil {
 		return err
@@ -42,11 +44,20 @@ func Run(conf *config.Config, log *zap.Logger) error {
 	authHandler := api.NewAuthHandler(authService, log)
 
 	repoTarget := postgres.NewPostgresTargetRepository(database)
-	//check := checker.NewHTTPChecker(&http.Client{})
 	rootCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	// инициализация кэша
+	clientForCache, err := cache.InitClientRedis(rootCtx, conf.RedisAddr)
+	if err != nil {
+		log.Error("cache is not connected", zap.Error(err))
+		return err
+	}
+	defer clientForCache.Close()
+	cacheManager := cache.NewCache(clientForCache)
+
 	logRepo := postgres.NewPostgresCheckLogRepository(database)
-	checkResPro := service.NewCheckServiceForKafka(logRepo)
+	checkResPro := service.NewCheckServiceForKafka(logRepo, cacheManager, log)
 
 	reader := kafka.NewReader(
 		kafka.ReaderConfig{
@@ -66,12 +77,10 @@ func Run(conf *config.Config, log *zap.Logger) error {
 	defer writer.Close()
 	producerSendTaskToChecker := broker.NewProducer(writer, log)
 
-	//checkService := service.NewCheckService(logRepo, repoTarget, check)
 	loop := worker.NewLoop(repoTarget, producerSendTaskToChecker, conf.WorkerCount, log, rootCtx)
 	go loop.Run()
 	targetService := service.NewTargetService(repoTarget, loop)
 	targetHandler := api.NewTargetHandler(targetService)
-	//checkHandler := api.NewCheckHandler(checkService)
 
 	r := chi.NewRouter()
 

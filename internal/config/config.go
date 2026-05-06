@@ -11,6 +11,7 @@ type Config struct {
 	DB          DBConfig
 	JWTSecret   string
 	WorkerCount int
+	RedisAddr   string
 }
 type DBConfig struct {
 	Host     string
@@ -102,6 +103,14 @@ func getWorkerCount() (int, error) {
 	return envInt, nil
 }
 
+func getRedisAddr() (string, error) {
+	env := os.Getenv("REDIS_ADDR")
+	if env == "" {
+		return "", errors.New("config: no REDIS_ADDR info")
+	}
+	return env, nil
+}
+
 func Load() (Config, error) {
 	port, err := getPort()
 	if err != nil {
@@ -119,11 +128,16 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	redisAddr, err := getRedisAddr()
+	if err != nil {
+		return Config{}, err
+	}
 	conf := Config{
 		Port:        port,
 		DB:          confDB,
 		JWTSecret:   jwtSecret,
 		WorkerCount: workerCount,
+		RedisAddr:   redisAddr,
 	}
 	return conf, nil
 }
